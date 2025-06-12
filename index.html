@@ -14,18 +14,23 @@
         button {
             padding: 10px 20px;
             font-size: 16px;
+            margin-bottom: 20px;
         }
 
-        #log {
+        .log-box {
             background: #000;
             color: #0f0;
             padding: 10px;
-            margin-top: 20px;
-            height: 500px;
+            height: 300px;
             overflow-y: auto;
             white-space: pre-wrap;
             font-family: monospace;
             border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -34,41 +39,49 @@
 
     <h1>🚀 Deploy Dashboard</h1>
     <button onclick="startDeploy()">▶ Deploy</button>
-    <div id="log">[Log sẽ hiển thị ở đây]</div>
+
+    <h2>📦 Deploy Log</h2>
+    <div id="deployLog" class="log-box">[Deploy log sẽ hiển thị tại đây]</div>
+
+    <h2>🐳 Server Log</h2>
+    <div id="serverLog" class="log-box">[Server log sẽ hiển thị tại đây]</div>
 
     <script>
         function startDeploy() {
-            const logDiv = document.getElementById("log");
-            logDiv.textContent = "🟡 Bắt đầu deploy...\n";
+            const deployLogDiv = document.getElementById("deployLog");
+            const serverLogDiv = document.getElementById("serverLog");
 
-            fetch("/deploy").then(res => {
-                if (res.ok) {
-                    logDiv.textContent += "✅ Đang stream log deploy...\n\n";
-                    streamDeployLog(() => {
-                        logDiv.textContent += "\n=== ✅ Deploy xong. Bắt đầu log container... ===\n\n";
-                        setTimeout(() => {
-                            streamServerLog();
-                        }, 2000); // delay nhẹ để container kịp chạy
-                    });
-                } else {
-                    logDiv.textContent += "⚠️ Deploy đang chạy hoặc lỗi.\n";
-                }
-            }).catch(err => {
-                logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
-            });
+            deployLogDiv.textContent = "⏳ Đang deploy...\n";
+            serverLogDiv.textContent = "⏳ Chờ sau deploy...\n";
+
+            fetch("/deploy")
+                .then(res => {
+                    if (res.ok) {
+                        streamDeployLog(() => {
+                            deployLogDiv.textContent += "\n✅ Deploy hoàn tất.\n";
+                            serverLogDiv.textContent = "▶ Đang đọc log container...\n";
+                        });
+                        setTimeout(() => streamServerLog(), 5000); // delay để container khởi động
+                    } else {
+                        deployLogDiv.textContent += "❌ Deploy đang chạy hoặc lỗi xảy ra.\n";
+                    }
+                })
+                .catch(err => {
+                    deployLogDiv.textContent += "❌ Lỗi khi gọi /deploy: " + err.message + "\n";
+                });
         }
 
         function streamDeployLog(onDone) {
-            const logDiv = document.getElementById("log");
+            const logDiv = document.getElementById("deployLog");
 
-            fetch("/log/deploy").then(response => {
+            fetch('/log/deploy').then(response => {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
 
                 function read() {
                     reader.read().then(({ done, value }) => {
                         if (done) {
-                            onDone();
+                            if (typeof onDone === 'function') onDone();
                             return;
                         }
                         logDiv.textContent += decoder.decode(value);
@@ -78,35 +91,29 @@
                 }
 
                 read();
-            }).catch(err => {
-                logDiv.textContent += "❌ Không đọc được log deploy: " + err.message + "\n";
             });
         }
 
         function streamServerLog() {
-            const logDiv = document.getElementById("log");
+            const logDiv = document.getElementById("serverLog");
 
             fetch('/log/server').then(response => {
                 const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
+                const decoder = new TextDecoder();
 
                 function read() {
                     reader.read().then(({ done, value }) => {
                         if (done) {
-                            logDiv.textContent += "\n🛑 Log container kết thúc\n";
+                            logDiv.textContent += "\n🛑 Kết thúc log container.\n";
                             return;
                         }
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        logDiv.textContent += chunk;
+                        logDiv.textContent += decoder.decode(value);
                         logDiv.scrollTop = logDiv.scrollHeight;
                         read();
                     });
                 }
 
                 read();
-            }).catch(err => {
-                logDiv.textContent += "❌ Lỗi khi stream log server: " + err.message + "\n";
             });
         }
     </script>
