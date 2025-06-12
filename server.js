@@ -13,7 +13,7 @@ const LOG_FILE = "./deploy.log";
 
 app.post("/deploy", (req, res) => {
   console.log("📦 Webhook received");
-
+  fs.writeFileSync(LOG_FILE, ""); // <== Xoá nội dung cũ
   // Ghi log nhận webhook
   fs.appendFileSync(
     LOG_FILE,
