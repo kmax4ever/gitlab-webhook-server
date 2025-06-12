@@ -11,11 +11,17 @@ const PORT = 3000;
 app.use(bodyParser.json());
 
 const LOG_FILE = "./deploy.log";
+let isDeploying = false;
 
 app.get("/deploy", (req, res) => {
+  if (isDeploying) {
+    return res.status(429).send("⚠️ Deploy đang diễn ra. Vui lòng đợi.");
+  }
+
+  isDeploying = true;
   console.log("📦 Webhook received");
-  fs.writeFileSync(LOG_FILE, ""); // <== Xoá nội dung cũ
-  // Ghi log nhận webhook
+
+  fs.writeFileSync(LOG_FILE, "");
   fs.appendFileSync(
     LOG_FILE,
     `\n== Webhook Received at ${new Date().toISOString()} ==\n`
@@ -33,6 +39,12 @@ app.get("/deploy", (req, res) => {
 
   child.on("exit", (code) => {
     fs.appendFileSync(LOG_FILE, `Script exited with code ${code}\n`);
+    isDeploying = false; // ✅ Mở lại quyền deploy
+  });
+
+  child.on("error", (err) => {
+    fs.appendFileSync(LOG_FILE, `Lỗi khi chạy deploy: ${err.message}\n`);
+    isDeploying = false;
   });
 
   res.status(200).send("Webhook received. Deployment started.");
