@@ -1,6 +1,6 @@
 #!/bin/bash
 echo ">>> Deploy script started at $(date)"
-cd && cd /xeleb-agent|| exit
+cd && cd xeleb-agent|| exit
 git pull
 docker stop ai-agent || true
 docker rm ai-agent || true
