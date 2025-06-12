@@ -68,6 +68,28 @@ app.get("/deploy", (req, res) => {
   });
 });
 
+app.get("/log/server", (req, res) => {
+  res.setHeader("Content-Type", "text/plain");
+
+  const logStream = spawn("docker", ["logs", "-f", `ai-agent`]);
+
+  logStream.stdout.on("data", (data) => {
+    res.write(data);
+  });
+
+  logStream.stderr.on("data", (data) => {
+    res.write(`STDERR: ${data}`);
+  });
+
+  logStream.on("close", () => {
+    res.end("== Kết thúc log ==\n");
+  });
+
+  req.on("close", () => {
+    logStream.kill();
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
