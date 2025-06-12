@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 
 const LOG_FILE = "./deploy.log";
 
-app.post("/deploy", (req, res) => {
+app.get("/deploy", (req, res) => {
   console.log("📦 Webhook received");
   fs.writeFileSync(LOG_FILE, ""); // <== Xoá nội dung cũ
   // Ghi log nhận webhook
