@@ -3,22 +3,10 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Deploy Log Viewer</title>
+    <title>Deploy Live Stream</title>
     <style>
-        body {
-            font-family: sans-serif;
-            background: #f0f0f0;
-            padding: 20px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-
         #log {
-            background: #000;
+            background: black;
             color: #0f0;
             padding: 10px;
             height: 600px;
@@ -32,51 +20,31 @@
 
 <body>
 
-    <h1>🚀 Deploy Dashboard</h1>
+    <h1>🚀 One-click Deploy</h1>
     <button onclick="startDeploy()">▶ Bắt đầu Deploy</button>
-
     <div id="log">[Log sẽ hiển thị ở đây]</div>
 
     <script>
         async function startDeploy() {
             const logDiv = document.getElementById("log");
-            logDiv.textContent = "📦 Gửi yêu cầu deploy...\n";
+            logDiv.textContent = "📡 Bắt đầu stream...\n";
 
-            try {
-                const res = await fetch("/deploy");
-                if (!res.ok) {
-                    logDiv.textContent += "⚠️ Deploy bị từ chối hoặc đang chạy.\n";
-                    return;
-                }
-
-                logDiv.textContent += "✅ Deploy đã bắt đầu...\n\n";
-
-                await streamLog("/log/deploy", logDiv); // chờ đọc xong log deploy
-                logDiv.textContent += "\n📦 ✅ Deploy hoàn tất. Đang chuyển sang log server...\n\n";
-
-                await streamLog("/log/server", logDiv); // đọc tiếp log server
-
-            } catch (err) {
-                logDiv.textContent += "❌ Lỗi: " + err.message + "\n";
-            }
-        }
-
-        async function streamLog(url, logDiv) {
-            const response = await fetch(url);
+            const response = await fetch("/deploy");
             const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
+            const decoder = new TextDecoder();
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    logDiv.textContent += "\n✅ Kết thúc toàn bộ quá trình.\n";
+                    break;
+                }
 
-                const chunk = decoder.decode(value);
-                logDiv.textContent += chunk;
+                logDiv.textContent += decoder.decode(value);
                 logDiv.scrollTop = logDiv.scrollHeight;
             }
         }
     </script>
-
 </body>
 
 </html>

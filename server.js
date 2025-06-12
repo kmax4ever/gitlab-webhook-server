@@ -1,21 +1,10 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const { exec } = require("child_process");
-const fs = require("fs");
-const { Tail } = require("tail");
 const { spawn } = require("child_process");
 
 const app = express();
 const PORT = 3000;
 
-app.use(bodyParser.json());
-
-const LOG_FILE = "./deploy.log";
 let isDeploying = false;
-
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
-});
 
 app.get("/deploy", (req, res) => {
   if (isDeploying) {
@@ -23,80 +12,60 @@ app.get("/deploy", (req, res) => {
   }
 
   isDeploying = true;
-  console.log("📦 Webhook received");
-
-  fs.writeFileSync(LOG_FILE, "");
-  fs.appendFileSync(
-    LOG_FILE,
-    `\n== Webhook Received at ${new Date().toISOString()} ==\n`
-  );
-
-  const child = exec("bash ./deploy.sh");
-
-  child.stdout.on("data", (data) => {
-    fs.appendFileSync(LOG_FILE, data);
-  });
-
-  child.stderr.on("data", (data) => {
-    fs.appendFileSync(LOG_FILE, data);
-  });
-
-  child.on("exit", (code) => {
-    fs.appendFileSync(LOG_FILE, `Script exited with code ${code}\n`);
-    isDeploying = false; // ✅ Mở lại quyền deploy
-  });
-
-  child.on("error", (err) => {
-    fs.appendFileSync(LOG_FILE, `Lỗi khi chạy deploy: ${err.message}\n`);
-    isDeploying = false;
-  });
-
-  res.status(200).send("Webhook received. Deployment started.");
-});
-
-// Route để xem log
-app.get("/log/deploy", (req, res) => {
   res.setHeader("Content-Type", "text/plain");
 
-  const tail = new Tail(LOG_FILE);
+  res.write(`📦 Bắt đầu deploy: ${new Date().toISOString()}\n\n`);
 
-  tail.on("line", (data) => {
-    res.write(data + "\n");
-  });
+  // Chạy deploy.sh và stream trực tiếp
+  const deploy = spawn("bash", ["./deploy.sh"]);
 
-  tail.on("error", (err) => {
-    res.write(`Lỗi: ${err.message}`);
-    res.end();
-  });
-
-  req.on("close", () => {
-    tail.unwatch();
-    res.end();
-  });
-});
-
-app.get("/log/server", (req, res) => {
-  res.setHeader("Content-Type", "text/plain");
-
-  const logStream = spawn("docker", ["logs", "-f", `ai-agent`]);
-
-  logStream.stdout.on("data", (data) => {
+  deploy.stdout.on("data", (data) => {
     res.write(data);
   });
 
-  logStream.stderr.on("data", (data) => {
+  deploy.stderr.on("data", (data) => {
     res.write(`STDERR: ${data}`);
   });
 
-  logStream.on("close", () => {
-    res.end("== Kết thúc log ==\n");
+  deploy.on("error", (err) => {
+    res.write(`❌ Lỗi khi chạy deploy: ${err.message}`);
+    res.end();
+    isDeploying = false;
+  });
+
+  deploy.on("close", (code) => {
+    res.write(`\n✅ Deploy kết thúc với mã ${code}\n`);
+    res.write(`\n🐳 Đang bắt đầu đọc log container...\n\n`);
+
+    // Sau khi deploy xong, tiếp tục stream docker logs
+    const containerLog = spawn("docker", ["logs", "-f", "ai-agent"]);
+
+    containerLog.stdout.on("data", (data) => {
+      res.write(data);
+    });
+
+    containerLog.stderr.on("data", (data) => {
+      res.write(`STDERR: ${data}`);
+    });
+
+    containerLog.on("close", () => {
+      res.write("\n🛑 Kết thúc log container\n");
+      res.end();
+      isDeploying = false;
+    });
+
+    req.on("close", () => {
+      containerLog.kill();
+      isDeploying = false;
+    });
   });
 
   req.on("close", () => {
-    logStream.kill();
+    deploy.kill();
+    isDeploying = false;
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
