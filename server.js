@@ -13,6 +13,10 @@ app.use(bodyParser.json());
 const LOG_FILE = "./deploy.log";
 let isDeploying = false;
 
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/index.html");
+});
+
 app.get("/deploy", (req, res) => {
   if (isDeploying) {
     return res.status(429).send("⚠️ Deploy đang diễn ra. Vui lòng đợi.");

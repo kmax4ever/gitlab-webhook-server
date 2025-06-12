@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>🛠 Deploy Dashboard</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            margin-top: 20px;
+            height: 400px;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            border: 1px solid #ccc;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚀 Deploy Dashboard</h1>
+    <button onclick="triggerDeploy()">▶ Deploy</button>
+
+    <div id="log">[Log sẽ hiển thị tại đây...]</div>
+
+    <script>
+        function triggerDeploy() {
+            fetch("/deploy")
+                .then((res) => {
+                    if (res.ok) {
+                        alert("✅ Deploy đã bắt đầu!");
+                    } else {
+                        alert("⚠️ Deploy bị từ chối hoặc đang chạy!");
+                    }
+                })
+                .catch((err) => alert("Lỗi: " + err.message));
+        }
+
+        // Hàm để đọc log realtime từ /log/deploy
+        function streamLog() {
+            const logDiv = document.getElementById("log");
+            const eventSource = new EventSourcePolyfill("/log/deploy");
+
+            fetch('/log/deploy').then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                const read = () => {
+                    reader.read().then(({ done, value }) => {
+                        if (done) return;
+                        logDiv.textContent += decoder.decode(value);
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                        read();
+                    });
+                };
+                read();
+            });
+        }
+
+        streamLog();
+    </script>
+</body>
+
+</html>
