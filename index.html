@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: sans-serif;
-            background: #f5f5f5;
+            background: #f9f9f9;
             padding: 20px;
         }
 
@@ -21,7 +21,7 @@
             color: #0f0;
             padding: 10px;
             margin-top: 20px;
-            height: 400px;
+            height: 500px;
             overflow-y: scroll;
             white-space: pre-wrap;
             border: 1px solid #ccc;
@@ -33,45 +33,82 @@
 <body>
 
     <h1>🚀 Deploy Dashboard</h1>
-    <button onclick="triggerDeploy()">▶ Deploy</button>
+    <button onclick="startDeploy()">▶ Deploy</button>
 
-    <div id="log">[Log sẽ hiển thị tại đây...]</div>
+    <div id="log">[Log sẽ hiển thị tại đây]</div>
 
     <script>
-        function triggerDeploy() {
+        function startDeploy() {
+            const logDiv = document.getElementById("log");
+            logDiv.textContent = "⏳ Đang gửi yêu cầu deploy...\n";
+
             fetch("/deploy")
-                .then((res) => {
+                .then(res => {
                     if (res.ok) {
-                        alert("✅ Deploy đã bắt đầu!");
+                        logDiv.textContent += "✅ Deploy đã bắt đầu...\n\n";
+                        streamDeployLog(() => {
+                            logDiv.textContent += "\n=== 📦 Deploy hoàn tất. Chuyển sang log container... ===\n\n";
+                            streamServerLog();
+                        });
                     } else {
-                        alert("⚠️ Deploy bị từ chối hoặc đang chạy!");
+                        logDiv.textContent += "⚠️ Deploy bị từ chối hoặc đang chạy.\n";
                     }
                 })
-                .catch((err) => alert("Lỗi: " + err.message));
+                .catch(err => {
+                    logDiv.textContent += "❌ Lỗi khi gọi /deploy: " + err.message + "\n";
+                });
         }
 
-        // Hàm để đọc log realtime từ /log/deploy
-        function streamLog() {
+        // Stream log deploy từ file
+        function streamDeployLog(onDone) {
             const logDiv = document.getElementById("log");
-            const eventSource = new EventSourcePolyfill("/log/deploy");
 
             fetch('/log/deploy').then(response => {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                const read = () => {
+
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            if (typeof onDone === 'function') onDone();
+                            return;
+                        }
+                        logDiv.textContent += decoder.decode(value);
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                        read();
+                    });
+                }
+
+                read();
+            }).catch(err => {
+                logDiv.textContent += "❌ Lỗi khi đọc log deploy: " + err.message + "\n";
+            });
+        }
+
+        // Stream log từ Docker container
+        function streamServerLog() {
+            const logDiv = document.getElementById("log");
+
+            fetch('/log/server').then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                function read() {
                     reader.read().then(({ done, value }) => {
                         if (done) return;
                         logDiv.textContent += decoder.decode(value);
                         logDiv.scrollTop = logDiv.scrollHeight;
                         read();
                     });
-                };
+                }
+
                 read();
+            }).catch(err => {
+                logDiv.textContent += "❌ Lỗi khi đọc log server: " + err.message + "\n";
             });
         }
-
-        streamLog();
     </script>
+
 </body>
 
 </html>
