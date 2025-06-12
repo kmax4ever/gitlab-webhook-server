@@ -86,17 +86,19 @@
         function streamServerLog() {
             const logDiv = document.getElementById("log");
 
-            fetch("/log/server").then(response => {
+            fetch('/log/server').then(response => {
                 const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+                const decoder = new TextDecoder("utf-8");
 
                 function read() {
                     reader.read().then(({ done, value }) => {
                         if (done) {
-                            logDiv.textContent += "\n🛑 Kết thúc log container.\n";
+                            logDiv.textContent += "\n🛑 Log container kết thúc\n";
                             return;
                         }
-                        logDiv.textContent += decoder.decode(value);
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        logDiv.textContent += chunk;
                         logDiv.scrollTop = logDiv.scrollHeight;
                         read();
                     });
@@ -104,7 +106,7 @@
 
                 read();
             }).catch(err => {
-                logDiv.textContent += "❌ Không đọc được log container: " + err.message + "\n";
+                logDiv.textContent += "❌ Lỗi khi stream log server: " + err.message + "\n";
             });
         }
     </script>
