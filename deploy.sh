@@ -3,8 +3,8 @@ echo ">>> Deploy script started at $(date)"
 cd && cd xeleb-agent|| exit
 echo ">>> pull last develop at $(date)"
 git pull
-docker stop ai-agent || true
-docker rm ai-agent || true
-docker build -t ai-agent .
-docker run -d --name ai-agent -p 8080:8080 ai-agent
+sudo docker stop ai-agent || true
+sudo docker rm ai-agent || true
+sudo docker build -t ai-agent .
+sudo docker run -d --name ai-agent -p 8080:8080 ai-agent
 echo ">>> Deploy script finished at $(date)"
